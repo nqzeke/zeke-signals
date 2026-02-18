@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request
 import requests
 
@@ -39,8 +40,10 @@ def webhook():
     send_telegram(message)
     return {"status": "ok"}, 200
 
+@app.route("/")
+def home():
+    return "Zeke Signals Bot is running!", 200
+
 if __name__ == "__main__":
-    import os
-port = int(os.environ.get("PORT", 8080))
-app.run(host="0.0.0.0", port=port)
-```
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
