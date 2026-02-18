@@ -1,0 +1,44 @@
+from flask import Flask, request
+import requests
+
+app = Flask(__name__)
+
+TELEGRAM_TOKEN = "8205898881:AAH4uk_3Q3mR-DcWXrcj6iP9ZFRgihEM38M"
+CHAT_ID = "8054275440"
+
+def send_telegram(message):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    requests.post(url, json={"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"})
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    data = request.json
+    alert_type = data.get("type", "")
+    symbol = data.get("symbol", "BTC/USD")
+    price = data.get("price", "")
+    timeframe = data.get("timeframe", "")
+
+    if alert_type == "watch":
+        message = (
+            f"👀 *WATCH ALERT — {symbol}*\n"
+            f"Price pulling into {timeframe} FVG\n"
+            f"Price: {price}\n"
+            f"Wait for iFVG confirmation before entry."
+        )
+    elif alert_type == "entry":
+        message = (
+            f"🚨 *ENTRY SIGNAL — {symbol}*\n"
+            f"iFVG confirmed ✅\n"
+            f"All confluences present ✅\n"
+            f"Price: {price}\n"
+            f"*EXECUTE YOUR EDGE. 1 OF 1000.*"
+        )
+    else:
+        message = f"📡 Alert received: {data}"
+
+    send_telegram(message)
+    return {"status": "ok"}, 200
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
+```
