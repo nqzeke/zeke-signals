@@ -26,14 +26,17 @@ def webhook():
             f"Price: {price}\n"
             f"Wait for iFVG confirmation before entry."
         )
-    elif alert_type == "entry":
-        message = (
-            f"🚨 *ENTRY SIGNAL — {symbol}*\n"
-            f"iFVG confirmed ✅\n"
-            f"All confluences present ✅\n"
-            f"Price: {price}\n"
-            f"*EXECUTE YOUR EDGE. 1 OF 1000.*"
-        )
+  elif alert_type == "entry":
+    direction = data.get("direction", "")
+    message = (
+        f"🚨 *ENTRY SIGNAL — {symbol}*\n"
+        f"Direction: *{direction}*\n"
+        f"Entry: *{price}*\n"
+        f"🔴 SL: {data.get('sl', 'N/A')}\n"
+        f"🟡 TP1: {data.get('tp1', 'N/A')}\n"
+        f"🟢 TP2: {data.get('tp2', 'N/A')}\n"
+        f"*EXECUTE YOUR EDGE. 1 OF 1000.*"
+    )
     else:
         message = f"📡 Alert received: {data}"
 
