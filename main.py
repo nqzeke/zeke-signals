@@ -33,8 +33,11 @@ def get_dxtrade_token():
     }
     try:
         resp = requests.post(url, json=payload, timeout=10)
+        print(f"Auth status: {resp.status_code}")
+        print(f"Auth response: {resp.text}")
         resp.raise_for_status()
         token = resp.json().get("token")
+        print(f"Token: {token}")
         return token
     except Exception as e:
         print(f"DXTrade auth error: {e}")
