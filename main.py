@@ -11,7 +11,7 @@ CHAT_ID = os.environ.get("CHAT_ID")
 DXTRADE_USERNAME = os.environ.get("DXTRADE_USERNAME")
 DXTRADE_PASSWORD = os.environ.get("DXTRADE_PASSWORD")
 
-DXTRADE_BASE = "https://demo.dx.trade/dxsca-web"
+DXTRADE_BASE = "https://dx.tradeifycrypto.co/dxsca-web"
 ACCOUNT_CODE = "2138913"
 RISK_DOLLARS = 3  # Change this anytime
 
