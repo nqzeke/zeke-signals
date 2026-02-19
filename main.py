@@ -25,11 +25,11 @@ def send_telegram(message):
 
 # ─── DXTRADE AUTH ───
 def get_dxtrade_token():
-    url = f"{DXTRADE_BASE}/login"
+    url = "https://dx.tradeifycrypto.co/api/auth/login"
     payload = {
         "username": DXTRADE_USERNAME,
         "password": DXTRADE_PASSWORD,
-        "domain": os.environ.get("DXTRADE_DOMAIN", "default")
+        "vendor": "tradeify"
     }
     try:
         resp = requests.post(url, json=payload, timeout=10)
@@ -39,7 +39,6 @@ def get_dxtrade_token():
     except Exception as e:
         print(f"DXTrade auth error: {e}")
         return None
-
 # ─── PLACE ORDER ───
 def place_order(token, direction, entry_price, sl, tp1):
     entry = float(entry_price)
