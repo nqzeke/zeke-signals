@@ -31,8 +31,12 @@ def get_dxtrade_token():
         "password": DXTRADE_PASSWORD,
         "vendor": "tradeify"
     }
+    headers = {
+        "Content-Type": "application/json",
+        "Cookie": 'DXTFID="dca248147ee5d849"'
+    }
     try:
-        resp = requests.post(url, json=payload, timeout=10)
+        resp = requests.post(url, json=payload, headers=headers, timeout=10)
         print(f"Auth status: {resp.status_code}")
         print(f"Auth response: {resp.text}")
         resp.raise_for_status()
