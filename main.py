@@ -11,7 +11,7 @@ CHAT_ID = os.environ.get("CHAT_ID")
 DXTRADE_USERNAME = os.environ.get("DXTRADE_USERNAME")
 DXTRADE_PASSWORD = os.environ.get("DXTRADE_PASSWORD")
 
-DXTRADE_BASE = "https://dx.tradeifycrypto.co/dxsca-web"
+DXTRADE_BASE = "https://demo.dx.trade/dxsca-web"
 ACCOUNT_CODE = "2138913"
 RISK_DOLLARS = 3  # Change this anytime
 
@@ -29,7 +29,6 @@ def get_dxtrade_token():
     payload = {
         "username": DXTRADE_USERNAME,
         "password": DXTRADE_PASSWORD,
-        "domain": os.environ.get("DXTRADE_DOMAIN", "tradeifycrypto")
     }
     try:
         resp = requests.post(url, json=payload, timeout=10)
