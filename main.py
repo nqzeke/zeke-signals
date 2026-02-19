@@ -29,7 +29,7 @@ def get_dxtrade_token():
     payload = {
         "username": DXTRADE_USERNAME,
         "password": DXTRADE_PASSWORD,
-        "domain": "default"
+        "domain": "dx.tradeifycrypto.co"
     }
     try:
         resp = requests.post(url, json=payload, timeout=10)
