@@ -24,10 +24,10 @@ MGC_DOLLARS_PER_POINT = 10
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     try:
-        requests.post(url, json={"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}, timeout=10)
+        r = requests.post(url, json={"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}, timeout=10)
+        print(f"Telegram response: {r.status_code} {r.text}")
     except Exception as e:
         print(f"Telegram error: {e}")
-
 # ─── NINJATRADER ATI ORDER ───
 def place_nt_order(direction, entry_price, sl, tp1):
     entry = float(entry_price)
