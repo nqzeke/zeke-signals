@@ -1,6 +1,4 @@
 
-Copy
-
 import os
 import socket
 import requests
