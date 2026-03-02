@@ -114,6 +114,7 @@ def webhook():
     grade = data.get("grade", "A+")
 
     if alert_type == "entry":
+        # Always save as pending so subscribers can pick it up
         signal_data = {
             "direction": direction,
             "symbol": symbol,
@@ -141,15 +142,15 @@ def webhook():
             f"*EXECUTE YOUR EDGE. 1 OF 1000.*"
         )
         send_telegram(message)
+
+        # Try to execute YOUR trade via ngrok — stays pending for subscribers regardless
         success, contracts, actual_risk = place_nt_order(direction, price, sl, tp1)
         if success:
             send_telegram(f"✅ *Order placed on NinjaTrader*\n{direction} | {contracts} contracts | Risk: ${actual_risk:.2f}")
-            if signal_id:
-                supabase_update("signals", signal_id, {"status": "executed"})
         else:
             send_telegram(f"❌ *NinjaTrader order FAILED — check Railway logs*")
-            if signal_id:
-                supabase_update("signals", signal_id, {"status": "failed"})
+
+        # Signal stays as "pending" so subscribers can still poll and execute it
 
     elif alert_type == "watch":
         send_telegram(f"👀 *WATCH ALERT — {symbol}*\nPrice pulling into {timeframe} FVG\nPrice: {price}\nWait for iFVG confirmation before entry.")
