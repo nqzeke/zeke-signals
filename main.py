@@ -173,6 +173,18 @@ def get_latest_signal():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/signals/pulled", methods=["POST"])
+def signal_pulled():
+    api_key = request.headers.get("X-API-Key")
+    if not validate_api_key(api_key):
+        return jsonify({"error": "invalid api key"}), 401
+    data = request.json
+    signal_id = data.get("signal_id")
+    if not signal_id:
+        return jsonify({"error": "no signal_id"}), 400
+    supabase_update("signals", signal_id, {"status": "pulled"})
+    return jsonify({"status": "ok"}), 200
+
 @app.route("/")
 def home():
     return "Cypher Gold Bot is running!", 200
