@@ -1,29 +1,77 @@
 import os
 import socket
 import requests
-from flask import Flask, request
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
 # ─── ENV VARIABLES ───
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
+WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "cypher2026")  # TradingView uses this
+
+# ─── SUPABASE CONFIG ───
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://rxtfknsbssaizndsfohd.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 # ─── NINJATRADER ATI CONFIG ───
 NT_HOST = os.environ.get("NT_HOST", "YOUR_PC_IP_HERE")
 NT_PORT = int(os.environ.get("NT_PORT", 36973))
 NT_ACCOUNT = os.environ.get("NT_ACCOUNT", "DEMO4530903")
 RISK_DOLLARS = 160
-
-# MGC = $1 per point (NOT $10 — that's full GC)
 MGC_DOLLARS_PER_POINT = 1
+
+# ─── SUPABASE HELPERS ───
+def supabase_insert(table, data):
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+    try:
+        r = requests.post(url, json=data, headers=headers, timeout=5)
+        return r.json()
+    except Exception as e:
+        print(f"Supabase insert error: {e}")
+        return None
+
+def supabase_update(table, signal_id, data):
+    url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{signal_id}"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+    try:
+        r = requests.patch(url, json=data, headers=headers, timeout=5)
+        return r.status_code
+    except Exception as e:
+        print(f"Supabase update error: {e}")
+        return None
+
+def validate_api_key(api_key):
+    """Check if subscriber API key is valid and active"""
+    if not api_key:
+        return False
+    url = f"{SUPABASE_URL}/rest/v1/subscribers?api_key=eq.{api_key}&active=eq.true"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}"
+    }
+    try:
+        r = requests.get(url, headers=headers, timeout=5)
+        return len(r.json()) > 0
+    except:
+        return False
 
 # ─── TELEGRAM ───
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     try:
         r = requests.post(url, json={"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}, timeout=10)
-        print(f"Telegram response: {r.status_code} {r.text}")
+        print(f"Telegram: {r.status_code}")
     except Exception as e:
         print(f"Telegram error: {e}")
 
@@ -36,10 +84,8 @@ def place_nt_order(direction, entry_price, sl, tp1):
     sl_distance = abs(entry - sl_price)
     if sl_distance == 0:
         print("SL distance is 0, skipping")
-        return False, 0
+        return False, 0, 0
 
-    # $160 fixed risk — scale contracts to hit exactly $160
-    # MGC = $1/point, so contracts = 160 / sl_distance
     risk_per_contract = sl_distance * MGC_DOLLARS_PER_POINT
     contracts = max(1, int(RISK_DOLLARS / risk_per_contract))
     actual_risk = contracts * risk_per_contract
@@ -48,9 +94,9 @@ def place_nt_order(direction, entry_price, sl, tp1):
     sl_action = "SELL" if action == "BUY" else "BUY"
     order_id = f"CY{int(entry)}"
 
-    nt_command  = f"PLACE;{NT_ACCOUNT};MGC APR26;{action};{contracts};MARKET;0;0;DAY;;{order_id};\n"
-    sl_command  = f"PLACE;{NT_ACCOUNT};MGC APR26;{sl_action};{contracts};STOP;0;{sl_price};DAY;;{order_id}SL;\n"
-    tp_command  = f"PLACE;{NT_ACCOUNT};MGC APR26;{sl_action};{contracts};LIMIT;{tp_price};0;DAY;;{order_id}TP;\n"
+    nt_command = f"PLACE;{NT_ACCOUNT};MGC APR26;{action};{contracts};MARKET;0;0;DAY;;{order_id};\n"
+    sl_command = f"PLACE;{NT_ACCOUNT};MGC APR26;{sl_action};{contracts};STOP;0;{sl_price};DAY;;{order_id}SL;\n"
+    tp_command = f"PLACE;{NT_ACCOUNT};MGC APR26;{sl_action};{contracts};LIMIT;{tp_price};0;DAY;;{order_id}TP;\n"
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -65,10 +111,15 @@ def place_nt_order(direction, entry_price, sl, tp1):
         print(f"NinjaTrader ATI error: {e}")
         return False, 0, 0
 
-# ─── WEBHOOK ───
+# ─── MAIN WEBHOOK (your TradingView alerts hit this) ───
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.json
+    
+    # Basic secret check so random people can't spam your webhook
+    if data.get("secret") != WEBHOOK_SECRET:
+        return jsonify({"error": "unauthorized"}), 401
+
     alert_type = data.get("type", "")
     symbol = data.get("symbol", "MGC")
     price = data.get("price", "")
@@ -80,6 +131,21 @@ def webhook():
     grade = data.get("grade", "A+")
 
     if alert_type == "entry":
+        # 1. Store signal in Supabase
+        signal_data = {
+            "direction": direction,
+            "symbol": symbol,
+            "entry_price": float(price) if price else None,
+            "sl": float(sl) if sl else None,
+            "tp1": float(tp1) if tp1 else None,
+            "tp2": float(tp2) if tp2 else None,
+            "grade": grade,
+            "status": "pending"
+        }
+        result = supabase_insert("signals", signal_data)
+        signal_id = result[0]["id"] if result else None
+
+        # 2. Send Telegram alert
         message = (
             f"🚨 *ENTRY SIGNAL — {symbol}*\n"
             f"Direction: *{direction}*\n"
@@ -93,11 +159,17 @@ def webhook():
         )
         send_telegram(message)
 
+        # 3. Execute on YOUR NinjaTrader
         success, contracts, actual_risk = place_nt_order(direction, price, sl, tp1)
+        
         if success:
             send_telegram(f"✅ *Order placed on NinjaTrader*\n{direction} | {contracts} contracts | Risk: ${actual_risk:.2f}")
+            if signal_id:
+                supabase_update("signals", signal_id, {"status": "executed"})
         else:
             send_telegram(f"❌ *NinjaTrader order FAILED — check Railway logs*")
+            if signal_id:
+                supabase_update("signals", signal_id, {"status": "failed"})
 
     elif alert_type == "watch":
         message = (
@@ -111,7 +183,30 @@ def webhook():
     else:
         send_telegram(f"📡 Alert received: {data}")
 
-    return {"status": "ok"}, 200
+    return jsonify({"status": "ok"}), 200
+
+# ─── SUBSCRIBER SIGNAL POLL (NinjaScript addon hits this) ───
+@app.route("/signals/latest", methods=["GET"])
+def get_latest_signal():
+    """Subscribers' NT addon polls this every second"""
+    api_key = request.headers.get("X-API-Key")
+    
+    if not validate_api_key(api_key):
+        return jsonify({"error": "invalid api key"}), 401
+
+    url = f"{SUPABASE_URL}/rest/v1/signals?status=eq.pending&order=created_at.desc&limit=1"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}"
+    }
+    try:
+        r = requests.get(url, headers=headers, timeout=5)
+        signals = r.json()
+        if signals:
+            return jsonify(signals[0]), 200
+        return jsonify({"status": "no signal"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/")
 def home():
