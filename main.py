@@ -57,7 +57,8 @@ def validate_api_key(api_key):
     }
     try:
         r = requests.get(url, headers=headers, timeout=5)
-        return len(r.json()) > 0
+        result = r.json()
+        return isinstance(result, list) and len(result) > 0
     except:
         return False
 
@@ -167,7 +168,7 @@ def get_latest_signal():
     try:
         r = requests.get(url, headers=headers, timeout=5)
         signals = r.json()
-        if signals:
+        if isinstance(signals, list) and len(signals) > 0:
             return jsonify(signals[0]), 200
         return jsonify({"status": "no signal"}), 200
     except Exception as e:
